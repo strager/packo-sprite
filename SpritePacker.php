@@ -57,7 +57,7 @@ class SpritePacker {
             'height' => $dest[3],
             'data' => array(
                 'image' => $image,
-                'file' => $filename,
+                'file' => basename($filename), // I hate doing this as much as you.
                 'dest' => $dest
             )
         );
@@ -135,6 +135,8 @@ class SpritePacker {
     }
 
     private function getSpriteDefinition($sprite) {
+        $dest = $sprite['data']['dest'];
+
         return array(
             'file' => $sprite['data']['file'],
             'src' => array(
@@ -143,7 +145,12 @@ class SpritePacker {
                 $sprite[2],
                 $sprite[3]
             ),
-            'dest' => $sprite['data']['dest']
+            'dest' => array(
+                $dest[0],
+                $dest[1],
+                imagesx($sprite['data']['image']),
+                imagesy($sprite['data']['image'])
+            )
         );
     }
 
