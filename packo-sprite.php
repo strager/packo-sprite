@@ -12,6 +12,18 @@ function error($message) {
 }
 
 function readCommandLineArgs($argv) {
+    $trim = false;
+
+    while (substr($argv[1], 0, 2) === '--') {
+        switch($argv[1]) {
+            case '--trim':
+                $trim = true;
+                break;
+        }
+
+        array_shift($argv);
+    }
+
     if (count($argv) < 3) {
         error('Give me an output directory and some input files');
     }
@@ -37,12 +49,13 @@ function readCommandLineArgs($argv) {
         'outputDirectory' => $outputDirectory,
         'inputFiles' => $inputFiles,
         'width' => 1024,
-        'height' => 1024
+        'height' => 1024,
+        'trim' => $trim
     );
 }
 
 function process($options) {
-    $spritePacker = new SpritePacker($options['width'], $options['height']);
+    $spritePacker = new SpritePacker($options['width'], $options['height'], $options['trim']);
     $spritePacker->insertFiles($options['inputFiles']);
 
     $definitions = $spritePacker->getSpriteSheetDefinitions();

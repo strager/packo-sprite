@@ -20,6 +20,18 @@ class RectanglePacker {
         return empty($this->rectangles);
     }
 
+    public function occupiedSize() {
+        $width = 0;
+        $height = 0;
+
+        foreach ($this->rectangles as $rectangle) {
+            $width  = max($width , $rectangle[0] + $rectangle[2]);
+            $height = max($height, $rectangle[1] + $rectangle[3]);
+        }
+
+        return array($width, $height);
+    }
+
     public function tryInsert($width, $height, $data) {
         $anchor = $this->findGoodAnchor($width, $height);
         if ($anchor === null) {

@@ -5,15 +5,18 @@ require_once 'RectanglePacker.php';
 class SpritePacker {
     private $packers = array();
     private $defaultWidth, $defaultHeight;
+    private $trim;
 
-    public function __construct($defaultWidth, $defaultHeight) {
+    public function __construct($defaultWidth, $defaultHeight, $trim) {
         $this->defaultWidth  = $defaultWidth;
         $this->defaultHeight = $defaultHeight;
+        $this->trim = $trim;
     }
 
     public function insertFiles($filenames) {
         $datas = array_map(array($this, 'getFileData'), $filenames);
         usort($datas, array('SpritePacker', 'sortFileDatas'));
+        $datas = array_reverse($datas);
 
         foreach ($datas as $data) {
             $this->insertFileData($data);
@@ -28,7 +31,9 @@ class SpritePacker {
         $aDim = max($a['width'], $a['height']);
         $bDim = max($b['width'], $b['height']);
 
-        return $aDim > $bDim ? -1 : $aDim < $bDim ? 1 : 0;
+        if ($aDim < $bDim) return -1;
+        if ($aDim > $bDim) return 1;
+        return 0;
     }
 
     private function getFileData($filename) {
@@ -38,12 +43,22 @@ class SpritePacker {
             error('Failed to load image file: ' . $file);
         }
 
+        $width  = imagesx($image);
+        $height = imagesy($image);
+
+        if ($this->trim) {
+            $dest = SpritePacker::trim($image);
+        } else {
+            $dest = array(0, 0, $width, $height);
+        }
+
         return array(
-            'width'  => imagesx($image),
-            'height' => imagesy($image),
+            'width'  => $dest[2],
+            'height' => $dest[3],
             'data' => array(
                 'image' => $image,
-                'file' => $filename
+                'file' => $filename,
+                'dest' => $dest
             )
         );
     }
@@ -78,12 +93,14 @@ class SpritePacker {
     }
 
     private function writeSpriteSheet($packer, $filename) {
-        $spriteSheet = imagecreatetruecolor($packer->width, $packer->height);
+        list($width, $height) = $packer->occupiedSize();
+
+        $spriteSheet = imagecreatetruecolor($width, $height);
         imagealphablending($spriteSheet, false);
         imagesavealpha($spriteSheet, true);
 
         $background = imagecolorallocatealpha($spriteSheet, 0, 0, 0, 127);
-        imagefilledrectangle($spriteSheet, 0, 0, $packer->width, $packer->height, $background);
+        imagefilledrectangle($spriteSheet, 0, 0, $width, $height, $background);
 
         foreach ($packer->rectangles as $rectangle) {
             $this->writeSprite($rectangle, $spriteSheet);
@@ -94,11 +111,13 @@ class SpritePacker {
     }
 
     private function writeSprite($sprite, $spriteSheet) {
+        $dest = $sprite['data']['dest'];
+
         imagecopy(
             $spriteSheet, $sprite['data']['image'],
             $sprite[0], $sprite[1],
-            0, 0,
-            $sprite[2], $sprite[3]
+            $dest[0], $dest[1],
+            $dest[2], $dest[3]
         );
     }
 
@@ -123,7 +142,8 @@ class SpritePacker {
                 $sprite[1],
                 $sprite[2],
                 $sprite[3]
-            )
+            ),
+            'dest' => $sprite['data']['dest']
         );
     }
 
@@ -143,5 +163,41 @@ class SpritePacker {
 
     private function getSpriteSheetFileName($i) {
         return 'sprite' . $i . '.png';
+    }
+
+    private static function trim($image) {
+        $width  = imagesx($image);
+        $height = imagesy($image);
+
+        $left   = 0;       while (SpritePacker::isClear($image, $left     , 0          , 0, 1)) ++$left;
+        $top    = 0;       while (SpritePacker::isClear($image, 0         , $top       , 1, 0)) ++$top;
+        $right  = $width;  while (SpritePacker::isClear($image, $right - 1, 0          , 0, 1)) --$right;
+        $bottom = $height; while (SpritePacker::isClear($image, 0         , $bottom - 1, 1, 0)) --$bottom;
+
+        return array($left, $top, max(0, $right - $left), max(0, $bottom - $top));
+    }
+
+    private static function isClear($image, $x, $y, $dx, $dy) {
+        $width  = imagesx($image);
+        $height = imagesy($image);
+
+        if (!($x >= 0 && $y >= 0 && $x < $width && $y < $height)) {
+            return false;
+        }
+
+        while ($x >= 0 && $y >= 0 && $x < $width && $y < $height) {
+            $color = imagecolorat($image, $x, $y);
+
+            $alpha = $color >> 24;
+
+            if ($alpha !== 127) {
+                return false;
+            }
+
+            $x += $dx;
+            $y += $dy;
+        }
+
+        return true;
     }
 }
